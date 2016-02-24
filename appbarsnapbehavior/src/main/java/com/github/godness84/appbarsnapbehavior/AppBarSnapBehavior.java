@@ -48,9 +48,14 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
             return;
 
         View parent = getParentViewWithBehavior(coordinatorLayout, target);
-        ScrollingViewBehavior behavior = (ScrollingViewBehavior) ((CoordinatorLayout.LayoutParams) parent.getLayoutParams()).getBehavior();
-        if (!behavior.canScrollUp())
+        if (parent == null){
             return;
+        }
+        
+        ScrollingViewBehavior behavior = (ScrollingViewBehavior) ((CoordinatorLayout.LayoutParams) parent.getLayoutParams()).getBehavior();
+        if (!behavior.canScrollUp()) {
+            return;
+        }
 
         int offset = scroll(child, dy);
 
