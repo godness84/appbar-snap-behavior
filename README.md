@@ -4,7 +4,7 @@ Applying the behaviors contained into this library to the AppBarLayout and to th
 
 ## Installation
 ``` groovy
-compile "com.github.godness84:appbar-snap-behavior:0.1.1"
+compile "com.github.godness84:appbar-snap-behavior:0.1.2"
 ```
 
 `appbar-snap-behavior` is deployed to [jitpack.io](https://jitpack.io/). Make sure you have `maven { url "https://jitpack.io" }` in your root build.gradle at the end of repositories:
