@@ -3,10 +3,16 @@ package com.github.godness84.appbarsnapbehavior;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.os.Build;
 import android.support.design.widget.AppBarLayout;
 import android.support.design.widget.CoordinatorLayout;
+import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
 import android.view.View;
+import android.view.ViewParent;
+
+import java.lang.reflect.Field;
+import java.util.List;
 
 public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout> {
     public AppBarSnapBehavior(Context context, AttributeSet attrs) {
@@ -18,16 +24,44 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
     private int mLastDyConsumed = 0;
     private ValueAnimator mAnimator;
 
+    // For dispatching offset updates to the AppBarLayout listeners
+    // (using reflection, since listeners are stored in private field).
+    private Field mAppBarListenersField = null;
+    private List<AppBarLayout.OnOffsetChangedListener> mAppBarListeners;
+
     @Override
     public boolean onLayoutChild(CoordinatorLayout parent, AppBarLayout abl, int layoutDirection) {
         parent.onLayoutChild(abl, layoutDirection);
 
         mOriginalTop = abl.getTop();
 
-        if (mCurrentTop != null)
+        if (mCurrentTop != null) {
+            // Ensure that the new top position is correct for the current layout.
+            if (mCurrentTop >= mOriginalTop) {
+                mCurrentTop = mOriginalTop;
+            }
+            if (mCurrentTop <= mOriginalTop - abl.getTotalScrollRange()) {
+                mCurrentTop = mOriginalTop - abl.getTotalScrollRange();
+            }
+
+            // Set the new top position
             updateTopBottomOffset(abl, mCurrentTop);
-        else
+        } else {
             mCurrentTop = mOriginalTop;
+        }
+
+        // Access to the listeners list on the AppBarLayout instance.
+        if (mAppBarListenersField == null) {
+            try {
+                mAppBarListenersField = abl.getClass().getDeclaredField("mListeners");
+                mAppBarListenersField.setAccessible(true);
+                mAppBarListeners = (List<AppBarLayout.OnOffsetChangedListener>) mAppBarListenersField.get(abl);
+            } catch (NoSuchFieldException e) {
+                e.printStackTrace();
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            }
+        }
 
         return true;
     }
@@ -48,10 +82,10 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
             return;
 
         View parent = getParentViewWithBehavior(coordinatorLayout, target);
-        if (parent == null){
+        if (parent == null) {
             return;
         }
-        
+
         ScrollingViewBehavior behavior = (ScrollingViewBehavior) ((CoordinatorLayout.LayoutParams) parent.getLayoutParams()).getBehavior();
         if (!behavior.canScrollUp()) {
             return;
@@ -145,8 +179,23 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
      */
     private int updateTopBottomOffset(AppBarLayout abl, int targetTop) {
         final int offset = targetTop - abl.getTop();
-        abl.offsetTopAndBottom(offset);
         mCurrentTop = targetTop;
+
+        if (offset != 0) {
+            abl.offsetTopAndBottom(offset);
+
+            // Manually invalidate the view and parent to make sure we get drawn pre-M
+            if (Build.VERSION.SDK_INT < 23) {
+                tickleInvalidationFlag(abl);
+                final ViewParent vp = abl.getParent();
+                if (vp instanceof View) {
+                    tickleInvalidationFlag((View) vp);
+                }
+            }
+
+            // Notify listeners of the AppBarLayout
+            dispatchOffsetUpdates(abl);
+        }
 
         return offset;
     }
@@ -170,5 +219,28 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
         }
 
         return updateTopBottomOffset(abl, newTop);
+    }
+
+    private static void tickleInvalidationFlag(View view) {
+        final float x = ViewCompat.getTranslationX(view);
+        ViewCompat.setTranslationY(view, x + 1);
+        ViewCompat.setTranslationY(view, x);
+    }
+
+    private void dispatchOffsetUpdates(AppBarLayout abl) {
+        if (mAppBarListeners == null) {
+            return;
+        }
+
+        int offset = abl.getTop() - mOriginalTop;
+
+        // Iterate backwards through the list so that most recently added listeners
+        // get the first chance to decide
+        for (int i = 0, z = mAppBarListeners.size(); i < z; i++) {
+            final AppBarLayout.OnOffsetChangedListener listener = mAppBarListeners.get(i);
+            if (listener != null) {
+                listener.onOffsetChanged(abl, offset);
+            }
+        }
     }
 }
