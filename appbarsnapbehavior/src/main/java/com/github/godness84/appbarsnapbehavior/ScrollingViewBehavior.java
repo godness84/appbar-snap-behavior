@@ -84,16 +84,15 @@ public class ScrollingViewBehavior extends CoordinatorLayout.Behavior<View> {
 
     @Override
     public void onNestedPreScroll(CoordinatorLayout coordinatorLayout, View child, View target, int dx, int dy, int[] consumed) {
-        if (dy > 0 && child.getTop() > mOriginalTop - mAppBarLayout.getTotalScrollRange()) {
+        if ((dy > 0 && child.getTop() > mOriginalTop - mAppBarLayout.getTotalScrollRange()) ||
+                (dy < 0 && child.getTop() < mOriginalTop)) {
             consumed[1] = scroll(child, dy);
         }
     }
 
     @Override
     public void onNestedScroll(CoordinatorLayout coordinatorLayout, View child, View target, int dxConsumed, int dyConsumed, int dxUnconsumed, int dyUnconsumed) {
-        if (dyUnconsumed < 0) {
-            scroll(child, dyUnconsumed);
-        }
+
     }
 
     @Override
