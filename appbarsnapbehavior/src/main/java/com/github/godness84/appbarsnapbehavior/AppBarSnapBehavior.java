@@ -78,19 +78,6 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
 
     @Override
     public void onNestedPreScroll(CoordinatorLayout coordinatorLayout, AppBarLayout child, View target, int dx, int dy, int[] consumed) {
-        if (dy < 0)
-            return;
-
-        View parent = getParentViewWithBehavior(coordinatorLayout, target);
-        if (parent == null) {
-            return;
-        }
-
-        ScrollingViewBehavior behavior = (ScrollingViewBehavior) ((CoordinatorLayout.LayoutParams) parent.getLayoutParams()).getBehavior();
-        if (!behavior.canScrollUp()) {
-            return;
-        }
-
         int offset = scroll(child, dy);
 
         if (offset != 0) {
