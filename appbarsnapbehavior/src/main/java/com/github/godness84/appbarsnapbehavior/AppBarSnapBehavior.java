@@ -1,5 +1,7 @@
 package com.github.godness84.appbarsnapbehavior;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
@@ -11,6 +13,7 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewParent;
 
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.util.List;
 
@@ -23,6 +26,10 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
     private int mOriginalTop = 0;
     private int mLastDyConsumed = 0;
     private ValueAnimator mAnimator;
+    private WeakReference<AppBarLayout> mAppBarLayoutRef;
+    private ScrollingViewBehavior mScrollingViewBehavior = null;
+    private ValueAnimator.AnimatorUpdateListener mAnimatorUpdateListener;
+    private AnimatorListenerAdapter mOnAnimationEnd;
 
     // For dispatching offset updates to the AppBarLayout listeners
     // (using reflection, since listeners are stored in private field).
@@ -63,6 +70,8 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
             }
         }
 
+        mAppBarLayoutRef = new WeakReference<>(abl);
+
         return true;
     }
 
@@ -99,16 +108,16 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
     @Override
     public void onStopNestedScroll(CoordinatorLayout coordinatorLayout, AppBarLayout child, View target) {
         if (mLastDyConsumed > 0) {
-            animateTopPositionTo(child, mOriginalTop);
+            animateTopPositionTo(child, mOriginalTop, false);
         } else if (mLastDyConsumed < 0) {
             View parent = getParentViewWithBehavior(coordinatorLayout, target);
 
             // If the scroll container is not enough up, the appbar must scroll down to its original position,
             // otherwise a blank space would be revealed.
             if (parent != null && parent.getTop() > mOriginalTop + child.getHeight() - child.getTotalScrollRange()) {
-                animateTopPositionTo(child, mOriginalTop);
+                animateTopPositionTo(child, mOriginalTop, false);
             } else {
-                animateTopPositionTo(child, mOriginalTop - child.getTotalScrollRange());
+                animateTopPositionTo(child, mOriginalTop - child.getTotalScrollRange(), false);
             }
         }
     }
@@ -123,7 +132,7 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
         return false;
     }
 
-    private void animateTopPositionTo(final AppBarLayout abl, int targetTop) {
+    private void animateTopPositionTo(final AppBarLayout abl, int targetTop, boolean adjustChild) {
         if (mAnimator != null) {
             mAnimator.cancel();
             mAnimator = null;
@@ -131,13 +140,9 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
 
         mAnimator = ObjectAnimator.ofInt(abl.getTop(), targetTop);
         mAnimator.setDuration(200);
-        mAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator animation) {
-                int top = ((Integer) animation.getAnimatedValue()).intValue();
-                updateTopBottomOffset(abl, top);
-            }
-        });
+        mAnimator.addUpdateListener(animatorUpdateListener(abl));
+        if (adjustChild && mScrollingViewBehavior != null)
+            mAnimator.addListener(getOnAnimationEnd());
 
         mAnimator.start();
     }
@@ -147,6 +152,7 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
             if (target.getLayoutParams() instanceof CoordinatorLayout.LayoutParams) {
                 final CoordinatorLayout.Behavior behavior = ((CoordinatorLayout.LayoutParams) target.getLayoutParams()).getBehavior();
                 if (behavior instanceof ScrollingViewBehavior) {
+                    mScrollingViewBehavior = (ScrollingViewBehavior) behavior;
                     return target;
                 }
             }
@@ -229,5 +235,46 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
                 listener.onOffsetChanged(abl, offset);
             }
         }
+    }
+
+    public void setExpanded(boolean expanded)
+    {
+        if (mAppBarLayoutRef != null)
+        {
+            AppBarLayout appBarLayout = mAppBarLayoutRef.get();
+            int targetTop = expanded ? 0 : -appBarLayout.getTotalScrollRange();
+            if (mCurrentTop != targetTop)
+                animateTopPositionTo(appBarLayout, targetTop, true);
+            else
+                if (mScrollingViewBehavior != null)
+                    mScrollingViewBehavior.adjustLayout();
+        }
+    }
+
+    private ValueAnimator.AnimatorUpdateListener animatorUpdateListener(final AppBarLayout abl) {
+        if (mAnimatorUpdateListener == null)
+            mAnimatorUpdateListener = new ValueAnimator.AnimatorUpdateListener()
+            {
+                @Override
+                public void onAnimationUpdate(ValueAnimator animation)
+                {
+                    int top = (Integer) animation.getAnimatedValue();
+                    updateTopBottomOffset(abl, top);
+                }
+            };
+        return mAnimatorUpdateListener;
+    }
+
+    private AnimatorListenerAdapter getOnAnimationEnd() {
+        if (mOnAnimationEnd == null)
+            mOnAnimationEnd = new AnimatorListenerAdapter()
+            {
+                @Override
+                public void onAnimationEnd(Animator animation)
+                {
+                    mScrollingViewBehavior.adjustLayout();
+                }
+            };
+        return mOnAnimationEnd;
     }
 }

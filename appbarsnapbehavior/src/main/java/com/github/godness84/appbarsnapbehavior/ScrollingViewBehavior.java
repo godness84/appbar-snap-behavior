@@ -148,4 +148,18 @@ public class ScrollingViewBehavior extends CoordinatorLayout.Behavior<View> {
 
         return setTopBottomOffset(view, newTop - mOriginalTop);
     }
+
+    public void adjustLayout() {
+        if (mChildRef != null) {
+            View child = mChildRef.get();
+            if (child.getTop() < mAppBarLayout.getBottom()) {
+                setTopBottomOffset(child, 0);
+            }
+            else {
+                if (child.getTop() != mAppBarLayout.getBottom()) {
+                    setTopBottomOffset(child, -mAppBarLayout.getTotalScrollRange());
+                }
+            }
+        }
+    }
 }
