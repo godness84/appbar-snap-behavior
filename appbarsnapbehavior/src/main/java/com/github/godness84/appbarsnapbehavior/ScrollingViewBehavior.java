@@ -7,16 +7,17 @@ import android.util.AttributeSet;
 import android.view.View;
 
 import java.lang.ref.WeakReference;
-import java.util.List;
 
 public class ScrollingViewBehavior extends CoordinatorLayout.Behavior<View> {
-    private static final String TAG = "ScrollingViewBehavior";
-
     private AppBarLayout mAppBarLayout = null;
     private Integer mCurrentOffset = null;
     private int mOriginalTop = 0;
 
     private WeakReference<View> mChildRef;
+
+    public ScrollingViewBehavior() {
+
+    }
 
     public ScrollingViewBehavior(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -34,12 +35,7 @@ public class ScrollingViewBehavior extends CoordinatorLayout.Behavior<View> {
         parent.onLayoutChild(child, layoutDirection);
 
         // Find the first AppBarLayout instance
-        final List<View> dependencies = parent.getDependencies(child);
-        for (int i = 0, z = dependencies.size(); i < z; i++) {
-            // Safe, since we declared that we depends on any AppBarLayout
-            mAppBarLayout = (AppBarLayout) dependencies.get(i);
-            break;
-        }
+        mAppBarLayout = (AppBarLayout) parent.getDependencies(child).get(0);
 
         // The original top position is below the AppBarLayouts when it's in its original position.
         mOriginalTop = child.getTop() + mAppBarLayout.getHeight();
@@ -54,7 +50,8 @@ public class ScrollingViewBehavior extends CoordinatorLayout.Behavior<View> {
         // Set the correct top position
         if (mCurrentOffset != null) {
             setTopBottomOffset(child, mCurrentOffset);
-        } else {
+        }
+        else {
             setTopBottomOffset(child, 0);
         }
 
@@ -67,7 +64,7 @@ public class ScrollingViewBehavior extends CoordinatorLayout.Behavior<View> {
         }
 
         // Hold a reference to the view.
-        mChildRef = new WeakReference<View>(child);
+        mChildRef = new WeakReference<>(child);
 
         return true;
     }
@@ -90,32 +87,10 @@ public class ScrollingViewBehavior extends CoordinatorLayout.Behavior<View> {
         }
     }
 
-    @Override
-    public void onNestedScroll(CoordinatorLayout coordinatorLayout, View child, View target, int dxConsumed, int dyConsumed, int dxUnconsumed, int dyUnconsumed) {
-
-    }
-
-    @Override
-    public void onStopNestedScroll(CoordinatorLayout coordinatorLayout, View child, View target) {
-    }
-
-    /**
-     * @return true, if the view which this behavior is attached to can move its top position up.
-     */
-    public boolean canScrollUp() {
-        if (mChildRef != null) {
-            View child = mChildRef.get();
-            if (child != null && child.getTop() > mOriginalTop - mAppBarLayout.getTotalScrollRange())
-                return true;
-        }
-
-        return false;
-    }
-
     /**
      * Offset the position of the view accoring to its original position.
      *
-     * @param view      View instance
+     * @param view         View instance
      * @param targetOffset the offset from its original position
      * @return the offset from the current top to the target top.
      */
@@ -142,7 +117,7 @@ public class ScrollingViewBehavior extends CoordinatorLayout.Behavior<View> {
             newTop = mOriginalTop;
         }
 
-        if (newTop <= mOriginalTop - mAppBarLayout.getTotalScrollRange()) {
+        if (newTop < mOriginalTop - mAppBarLayout.getTotalScrollRange()) {
             newTop = mOriginalTop - mAppBarLayout.getTotalScrollRange();
         }
 

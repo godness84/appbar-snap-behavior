@@ -18,9 +18,7 @@ import java.lang.reflect.Field;
 import java.util.List;
 
 public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout> {
-    public AppBarSnapBehavior(Context context, AttributeSet attrs) {
-        super(context, attrs);
-    }
+    public static final int ANIMATION_DURATION = 200;
 
     private Integer mCurrentTop = null;
     private int mOriginalTop = 0;
@@ -36,6 +34,14 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
     private Field mAppBarListenersField = null;
     private List<AppBarLayout.OnOffsetChangedListener> mAppBarListeners;
 
+    public AppBarSnapBehavior() {
+
+    }
+
+    public AppBarSnapBehavior(Context context, AttributeSet attrs) {
+        super(context, attrs);
+    }
+
     @Override
     public boolean onLayoutChild(CoordinatorLayout parent, AppBarLayout abl, int layoutDirection) {
         parent.onLayoutChild(abl, layoutDirection);
@@ -44,44 +50,36 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
 
         if (mCurrentTop != null) {
             // Ensure that the new top position is correct for the current layout.
-            if (mCurrentTop >= mOriginalTop) {
+            if (mCurrentTop >= mOriginalTop)
                 mCurrentTop = mOriginalTop;
-            }
-            if (mCurrentTop <= mOriginalTop - abl.getTotalScrollRange()) {
+            if (mCurrentTop <= mOriginalTop - abl.getTotalScrollRange())
                 mCurrentTop = mOriginalTop - abl.getTotalScrollRange();
-            }
 
             // Set the new top position
             updateTopBottomOffset(abl, mCurrentTop);
-        } else {
+        }
+        else {
             mCurrentTop = mOriginalTop;
         }
 
         // Access to the listeners list on the AppBarLayout instance.
         if (mAppBarListenersField == null) {
             try {
-                mAppBarListenersField = abl.getClass().getDeclaredField("mListeners");
+                Class appBarClass = abl instanceof SnapAppBarLayout ? abl.getClass().getSuperclass() : abl.getClass();
+                mAppBarListenersField = appBarClass.getDeclaredField("mListeners");
                 mAppBarListenersField.setAccessible(true);
                 mAppBarListeners = (List<AppBarLayout.OnOffsetChangedListener>) mAppBarListenersField.get(abl);
-            } catch (NoSuchFieldException e) {
-                e.printStackTrace();
-            } catch (IllegalAccessException e) {
+            }
+            catch (Exception e) {
                 e.printStackTrace();
             }
         }
-
         mAppBarLayoutRef = new WeakReference<>(abl);
-
         return true;
     }
 
     @Override
     public boolean onStartNestedScroll(CoordinatorLayout coordinatorLayout, AppBarLayout child, View directTargetChild, View target, int nestedScrollAxes) {
-        mLastDyConsumed = 0;
-
-        if (mAnimator != null)
-            mAnimator.cancel();
-
         return true;
     }
 
@@ -108,16 +106,20 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
     @Override
     public void onStopNestedScroll(CoordinatorLayout coordinatorLayout, AppBarLayout child, View target) {
         if (mLastDyConsumed > 0) {
-            animateTopPositionTo(child, mOriginalTop, false);
-        } else if (mLastDyConsumed < 0) {
-            View parent = getParentViewWithBehavior(coordinatorLayout, target);
+            animateTopPositionTo(child, mOriginalTop);
+        }
+        else {
+            if (mLastDyConsumed < 0) {
+                View parent = getParentViewWithBehavior(coordinatorLayout, target);
 
-            // If the scroll container is not enough up, the appbar must scroll down to its original position,
-            // otherwise a blank space would be revealed.
-            if (parent != null && parent.getTop() > mOriginalTop + child.getHeight() - child.getTotalScrollRange()) {
-                animateTopPositionTo(child, mOriginalTop, false);
-            } else {
-                animateTopPositionTo(child, mOriginalTop - child.getTotalScrollRange(), false);
+                // If the scroll container is not enough up, the appbar must scroll down to its original position,
+                // otherwise a blank space would be revealed.
+                if (parent != null && parent.getTop() > mOriginalTop + child.getHeight() - child.getTotalScrollRange()) {
+                    animateTopPositionTo(child, mOriginalTop, false);
+                }
+                else {
+                    animateTopPositionTo(child, mOriginalTop - child.getTotalScrollRange());
+                }
             }
         }
     }
@@ -132,17 +134,26 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
         return false;
     }
 
+    private void animateTopPositionTo(final AppBarLayout abl, int targetTop) {
+        animateTopPositionTo(abl, targetTop, false, ANIMATION_DURATION);
+    }
+
     private void animateTopPositionTo(final AppBarLayout abl, int targetTop, boolean adjustChild) {
+        animateTopPositionTo(abl, targetTop, adjustChild, ANIMATION_DURATION);
+    }
+
+    private void animateTopPositionTo(final AppBarLayout abl, int targetTop, boolean adjustChild, int duration) {
         if (mAnimator != null) {
             mAnimator.cancel();
             mAnimator = null;
         }
 
         mAnimator = ObjectAnimator.ofInt(abl.getTop(), targetTop);
-        mAnimator.setDuration(200);
+        mAnimator.setDuration(targetTop == mCurrentTop ? 0 : duration);
         mAnimator.addUpdateListener(animatorUpdateListener(abl));
-        if (adjustChild && mScrollingViewBehavior != null)
+        if (adjustChild && mScrollingViewBehavior != null) {
             mAnimator.addListener(getOnAnimationEnd());
+        }
 
         mAnimator.start();
     }
@@ -221,9 +232,8 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
     }
 
     private void dispatchOffsetUpdates(AppBarLayout abl) {
-        if (mAppBarListeners == null) {
+        if (mAppBarListeners == null)
             return;
-        }
 
         int offset = abl.getTop() - mOriginalTop;
 
@@ -231,28 +241,21 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
         // get the first chance to decide
         for (int i = 0, z = mAppBarListeners.size(); i < z; i++) {
             final AppBarLayout.OnOffsetChangedListener listener = mAppBarListeners.get(i);
-            if (listener != null) {
+            if (listener != null)
                 listener.onOffsetChanged(abl, offset);
-            }
         }
     }
 
-    public void setExpanded(boolean expanded)
-    {
-        if (mAppBarLayoutRef != null)
-        {
+    public void setExpanded(boolean expanded, boolean animate) {
+        if (mAppBarLayoutRef != null) {
             AppBarLayout appBarLayout = mAppBarLayoutRef.get();
             int targetTop = expanded ? 0 : -appBarLayout.getTotalScrollRange();
-            if (mCurrentTop != targetTop)
-                animateTopPositionTo(appBarLayout, targetTop, true);
-            else
-                if (mScrollingViewBehavior != null)
-                    mScrollingViewBehavior.adjustLayout();
+            animateTopPositionTo(appBarLayout, targetTop, true, animate ? ANIMATION_DURATION : 0);
         }
     }
 
     private ValueAnimator.AnimatorUpdateListener animatorUpdateListener(final AppBarLayout abl) {
-        if (mAnimatorUpdateListener == null)
+        if (mAnimatorUpdateListener == null) {
             mAnimatorUpdateListener = new ValueAnimator.AnimatorUpdateListener()
             {
                 @Override
@@ -262,19 +265,19 @@ public class AppBarSnapBehavior extends CoordinatorLayout.Behavior<AppBarLayout>
                     updateTopBottomOffset(abl, top);
                 }
             };
+        }
         return mAnimatorUpdateListener;
     }
 
     private AnimatorListenerAdapter getOnAnimationEnd() {
-        if (mOnAnimationEnd == null)
-            mOnAnimationEnd = new AnimatorListenerAdapter()
-            {
+        if (mOnAnimationEnd == null) {
+            mOnAnimationEnd = new AnimatorListenerAdapter() {
                 @Override
-                public void onAnimationEnd(Animator animation)
-                {
+                public void onAnimationEnd(Animator animation) {
                     mScrollingViewBehavior.adjustLayout();
                 }
             };
+        }
         return mOnAnimationEnd;
     }
 }
