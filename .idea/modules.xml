@@ -4,6 +4,9 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/AppBarSnapBehaviorProject.iml" filepath="$PROJECT_DIR$/AppBarSnapBehaviorProject.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/appbar-snap-behavior.iml" filepath="$PROJECT_DIR$/appbar-snap-behavior.iml" />
+      <module fileurl="file://$PROJECT_DIR$/appbarsnapbehavior/appbarsnapbehavior.iml" filepath="$PROJECT_DIR$/appbarsnapbehavior/appbarsnapbehavior.iml" />
       <module fileurl="file://$PROJECT_DIR$/appbarsnapbehavior/appbarsnapbehavior.iml" filepath="$PROJECT_DIR$/appbarsnapbehavior/appbarsnapbehavior.iml" />
     </modules>
   </component>
