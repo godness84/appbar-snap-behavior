@@ -22,7 +22,3 @@ allprojects {
 Just 2 steps:
 - Add `app:layout_behavior="com.github.godness84.appbarsnapbehavior.AppBarSnapBehavior"` to your AppBarLayout.
 - Use `app:layout_behavior="com.github.godness84.appbarsnapbehavior.ScrollingViewBehavior"` in your scrolling container (eg. ViewPager, NestedScrollView or RecyclerView).
-
-
-## Known issues
-Since we're replacing the default behavior of the AppBarLayout, some features of it are not supported (eg. `setExpanded()`).
